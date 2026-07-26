@@ -31,7 +31,7 @@ with st.sidebar:
 # Ruang Input
 user_idea = st.text_area(
     "Masukkan idea produk / servis anda:", 
-    placeholder="Contoh: Servis kereta sewa berpemandu, selesa, pemandu mesra & harga berpatutan.",
+    placeholder="Contoh: Servis repair telefon dari rumah ke rumah, tukar skrin, bateri & siap cepat.",
     height=100
 )
 
@@ -45,12 +45,10 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
         with st.spinner("🤖 Otak Gemini AI sedang merangka strategi kempen khas untuk anda..."):
             genai.configure(api_key=api_key)
             
-            # Senarai enjin AI simpanan jika salah satu kena rate-limit
+            # Model Gemini paling stabil
             models_to_try = [
                 'gemini-2.0-flash',
-                'gemini-1.5-flash',
-                'gemini-2.0-flash-lite-preview-02-05',
-                'gemini-1.5-pro'
+                'gemini-2.0-flash-lite'
             ]
             
             combined_prompt = f"""
@@ -69,9 +67,8 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
             """
 
             response_text = None
-            last_error = None
+            is_rate_limited = False
 
-            # Cuba setiap model satu per satu
             for model_name in models_to_try:
                 try:
                     model = genai.GenerativeModel(model_name)
@@ -80,7 +77,9 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
                         response_text = res.text
                         break
                 except Exception as e:
-                    last_error = e
+                    err_msg = str(e)
+                    if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                        is_rate_limited = True
                     continue
 
             if response_text:
@@ -117,9 +116,7 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
                     st.markdown(f'<div class="output-box">{res_copy}</div>', unsafe_allow_html=True)
 
                 st.success("✨ Siap! Kempen berjaya dijana secara 100% dinamik.")
+            elif is_rate_limited:
+                st.warning("⏳ Kuota percuma Google tengah 'cooldown' sekejap (30–60 saat). Sila tunggu sekejap dan tekan butang Generate semula!")
             else:
-                if "429" in str(last_error):
-                    st.error("⏳ Enjin Google tengah rehat kejap (rate limit). Sila tunggu 30 saat dan tekan butang Generate semula!")
-                else:
-                    st.error(f"Ada masalah pada API Key atau sambungan: {last_error}")
-    
+                st.error("Ada masalah pada API Key atau sambungan. Sila pastikan API Key anda betul!")
