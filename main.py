@@ -1,5 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
+import time
 
 # Konfigurasi Paparan Apps
 st.set_page_config(
@@ -20,13 +21,20 @@ st.markdown("""
 st.title("⚡ 1-Click Content Factory")
 st.markdown("Hasilkan **Image Prompt, Skrip TikTok, & Copywriting Threads** serentak mengikut apa sahaja produk/servis anda!")
 
+# Ambil API Key dari Secrets automatik jika ada
+secret_key = st.secrets.get("GEMINI_API_KEY", "")
+
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Tetapan Otak AI")
-    api_key = st.text_input("Masukkan Gemini API Key (Percuma):", type="password", help="Ambil percuma di aistudio.google.com")
-    st.markdown("👉 [**Klik Sini Ambil API Key Percuma**](https://aistudio.google.com/app/apikey)")
-    st.markdown("---")
-    st.info("💡 **Nota:** Masukkan API Key Google dari link di atas sekali sahaja untuk aktifkan enjin AI.")
+    if secret_key:
+        st.success("✅ API Key disambung automatik!")
+        api_key = secret_key
+    else:
+        api_key = st.text_input("Masukkan Gemini API Key (Percuma):", type="password", help="Ambil percuma di aistudio.google.com")
+        st.markdown("👉 [**Klik Sini Ambil API Key Percuma**](https://aistudio.google.com/app/apikey)")
+        st.markdown("---")
+        st.info("💡 **Nota:** Masukkan API Key Google jika Secrets belum ditetapkan.")
 
 # Ruang Input
 user_idea = st.text_area(
@@ -45,12 +53,6 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
         with st.spinner("🤖 Otak Gemini AI sedang merangka strategi kempen khas untuk anda..."):
             genai.configure(api_key=api_key)
             
-            # Model Gemini paling stabil
-            models_to_try = [
-                'gemini-2.0-flash',
-                'gemini-2.0-flash-lite'
-            ]
-            
             combined_prompt = f"""
             Tolong jana 3 perkara untuk perniagaan/servis ini: '{user_idea}'
 
@@ -67,20 +69,24 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
             """
 
             response_text = None
-            is_rate_limited = False
+            last_error = None
 
-            for model_name in models_to_try:
+            # Cuba sehingga 3 kali jika kena cooldown
+            for attempt in range(3):
                 try:
-                    model = genai.GenerativeModel(model_name)
+                    model = genai.GenerativeModel('gemini-2.0-flash')
                     res = model.generate_content(combined_prompt)
                     if res and res.text:
                         response_text = res.text
                         break
                 except Exception as e:
-                    err_msg = str(e)
-                    if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-                        is_rate_limited = True
-                    continue
+                    last_error = str(e)
+                    if "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
+                        # Tunggu 5 saat sebelum cuba semula
+                        time.sleep(5)
+                        continue
+                    else:
+                        break
 
             if response_text:
                 res_img = "Gagal menjana gambar."
@@ -116,7 +122,6 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
                     st.markdown(f'<div class="output-box">{res_copy}</div>', unsafe_allow_html=True)
 
                 st.success("✨ Siap! Kempen berjaya dijana secara 100% dinamik.")
-            elif is_rate_limited:
-                st.warning("⏳ Kuota percuma Google tengah 'cooldown' sekejap (30–60 saat). Sila tunggu sekejap dan tekan butang Generate semula!")
             else:
-                st.error("Ada masalah pada API Key atau sambungan. Sila pastikan API Key anda betul!")
+                st.error("⏳ Server Google sangat sibuk / kuota percuma harian akaun ini dah habis. Buat API Key baharu di Google AI Studio (New Project) dan kemaskini di Secrets!")
+            
