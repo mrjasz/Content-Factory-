@@ -46,7 +46,7 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
             try:
                 # Setting enjin Gemini
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-2.0-flash')
                 
                 # Prompt Khas
                 prompt_img = f"Create 1 detailed Midjourney image prompt in English for promoting this business/service: '{user_idea}'. Include realistic details, cinematic lighting, 8k. Output ONLY the raw prompt text, no intro."
