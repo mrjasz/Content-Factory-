@@ -43,43 +43,60 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
         st.error("⚠️ Sila masukkan **Gemini API Key** di menu sebelah kiri dulu bro!")
     else:
         with st.spinner("🤖 Otak Gemini AI sedang merangka strategi kempen khas untuk anda..."):
-            try:
-                # Setting enjin Gemini
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-2.0-flash')
-                
-                # 1 Panggilan API Sahaja (Jimat Quota & Elak Error 429)
-                combined_prompt = f"""
-                Tolong jana 3 perkara untuk perniagaan/servis ini: '{user_idea}'
+            genai.configure(api_key=api_key)
+            
+            # Senarai enjin AI simpanan jika salah satu kena rate-limit
+            models_to_try = [
+                'gemini-2.0-flash',
+                'gemini-1.5-flash',
+                'gemini-2.0-flash-lite-preview-02-05',
+                'gemini-1.5-pro'
+            ]
+            
+            combined_prompt = f"""
+            Tolong jana 3 perkara untuk perniagaan/servis ini: '{user_idea}'
 
-                Formatkan jawapan TEPAT seperti struktur pembahagi di bawah ini tanpa sebarang intro:
+            Formatkan jawapan TEPAT seperti struktur pembahagi di bawah ini tanpa sebarang intro:
 
-                ===IMAGE===
-                (Tulis 1 detailed Midjourney image prompt dalam Bahasa Inggeris. Include realistic details, cinematic lighting, 8k. Hanya prompt sahaja.)
+            ===IMAGE===
+            (Tulis 1 detailed Midjourney image prompt dalam Bahasa Inggeris. Include realistic details, cinematic lighting, 8k. Hanya prompt sahaja.)
 
-                ===SCRIPT===
-                (Tulis 1 skrip video TikTok/Reels pendek 15-30 saat dalam Bahasa Melayu santai. Format kemas ada [0-3s] Hook penarik, [3-15s] Isi/Penyelesaian, [15-20s] Call to Action.)
+            ===SCRIPT===
+            (Tulis 1 skrip video TikTok/Reels pendek 15-30 saat dalam Bahasa Melayu santai. Format kemas ada [0-3s] Hook penarik, [3-15s] Isi/Penyelesaian, [15-20s] Call to Action.)
 
-                ===COPY===
-                (Tulis 1 ayat copywriting khas Threads/FB dalam Bahasa Melayu santai gaya borak manusia/storytelling. Elakkan hard sell.)
-                """
+            ===COPY===
+            (Tulis 1 ayat copywriting khas Threads/FB dalam Bahasa Melayu santai gaya borak manusia/storytelling. Elakkan hard sell.)
+            """
 
-                response = model.generate_content(combined_prompt).text
+            response_text = None
+            last_error = None
 
-                # Asingkan jawapan mengikut tag
+            # Cuba setiap model satu per satu
+            for model_name in models_to_try:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    res = model.generate_content(combined_prompt)
+                    if res and res.text:
+                        response_text = res.text
+                        break
+                except Exception as e:
+                    last_error = e
+                    continue
+
+            if response_text:
                 res_img = "Gagal menjana gambar."
                 res_script = "Gagal menjana skrip."
                 res_copy = "Gagal menjana copywriting."
 
-                if "===IMAGE===" in response and "===SCRIPT===" in response and "===COPY===" in response:
-                    parts = response.split("===IMAGE===")[1].split("===SCRIPT===")
+                if "===IMAGE===" in response_text and "===SCRIPT===" in response_text and "===COPY===" in response_text:
+                    parts = response_text.split("===IMAGE===")[1].split("===SCRIPT===")
                     res_img = parts[0].strip()
                     
                     script_and_copy = parts[1].split("===COPY===")
                     res_script = script_and_copy[0].strip()
                     res_copy = script_and_copy[1].strip()
                 else:
-                    res_copy = response
+                    res_copy = response_text
 
                 # Paparan 3 Kolum
                 col1, col2, col3 = st.columns(3)
@@ -100,6 +117,9 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
                     st.markdown(f'<div class="output-box">{res_copy}</div>', unsafe_allow_html=True)
 
                 st.success("✨ Siap! Kempen berjaya dijana secara 100% dinamik.")
-
-            except Exception as e:
-                st.error(f"Ada masalah: {e}")
+            else:
+                if "429" in str(last_error):
+                    st.error("⏳ Enjin Google tengah rehat kejap (rate limit). Sila tunggu 30 saat dan tekan butang Generate semula!")
+                else:
+                    st.error(f"Ada masalah pada API Key atau sambungan: {last_error}")
+    
