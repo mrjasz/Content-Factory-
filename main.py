@@ -1,6 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-import time
 
 # Konfigurasi Paparan Apps
 st.set_page_config(
@@ -51,44 +50,28 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
         st.error("⚠️ Sila masukkan **Gemini API Key** di menu sebelah kiri dulu bro!")
     else:
         with st.spinner("🤖 Otak Gemini AI sedang merangka strategi kempen khas untuk anda..."):
-            genai.configure(api_key=api_key)
-            
-            combined_prompt = f"""
-            Tolong jana 3 perkara untuk perniagaan/servis ini: '{user_idea}'
+            try:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-2.0-flash')
+                
+                combined_prompt = f"""
+                Tolong jana 3 perkara untuk perniagaan/servis ini: '{user_idea}'
 
-            Formatkan jawapan TEPAT seperti struktur pembahagi di bawah ini tanpa sebarang intro:
+                Formatkan jawapan TEPAT seperti struktur pembahagi di bawah ini tanpa sebarang intro:
 
-            ===IMAGE===
-            (Tulis 1 detailed Midjourney image prompt dalam Bahasa Inggeris. Include realistic details, cinematic lighting, 8k. Hanya prompt sahaja.)
+                ===IMAGE===
+                (Tulis 1 detailed Midjourney image prompt dalam Bahasa Inggeris. Include realistic details, cinematic lighting, 8k. Hanya prompt sahaja.)
 
-            ===SCRIPT===
-            (Tulis 1 skrip video TikTok/Reels pendek 15-30 saat dalam Bahasa Melayu santai. Format kemas ada [0-3s] Hook penarik, [3-15s] Isi/Penyelesaian, [15-20s] Call to Action.)
+                ===SCRIPT===
+                (Tulis 1 skrip video TikTok/Reels pendek 15-30 saat dalam Bahasa Melayu santai. Format kemas ada [0-3s] Hook penarik, [3-15s] Isi/Penyelesaian, [15-20s] Call to Action.)
 
-            ===COPY===
-            (Tulis 1 ayat copywriting khas Threads/FB dalam Bahasa Melayu santai gaya borak manusia/storytelling. Elakkan hard sell.)
-            """
+                ===COPY===
+                (Tulis 1 ayat copywriting khas Threads/FB dalam Bahasa Melayu santai gaya borak manusia/storytelling. Elakkan hard sell.)
+                """
 
-            response_text = None
-            last_error = None
+                res = model.generate_content(combined_prompt)
+                response_text = res.text
 
-            # Cuba sehingga 3 kali jika kena cooldown
-            for attempt in range(3):
-                try:
-                    model = genai.GenerativeModel('gemini-2.0-flash')
-                    res = model.generate_content(combined_prompt)
-                    if res and res.text:
-                        response_text = res.text
-                        break
-                except Exception as e:
-                    last_error = str(e)
-                    if "429" in last_error or "RESOURCE_EXHAUSTED" in last_error:
-                        # Tunggu 5 saat sebelum cuba semula
-                        time.sleep(5)
-                        continue
-                    else:
-                        break
-
-            if response_text:
                 res_img = "Gagal menjana gambar."
                 res_script = "Gagal menjana skrip."
                 res_copy = "Gagal menjana copywriting."
@@ -122,6 +105,6 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
                     st.markdown(f'<div class="output-box">{res_copy}</div>', unsafe_allow_html=True)
 
                 st.success("✨ Siap! Kempen berjaya dijana secara 100% dinamik.")
-            else:
-                st.error("⏳ Server Google sangat sibuk / kuota percuma harian akaun ini dah habis. Buat API Key baharu di Google AI Studio (New Project) dan kemaskini di Secrets!")
-            
+
+            except Exception as e:
+                st.error(f"⚠️ Masalah dikesan: {e}")
