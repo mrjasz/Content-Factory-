@@ -31,7 +31,7 @@ with st.sidebar:
 # Ruang Input
 user_idea = st.text_area(
     "Masukkan idea produk / servis anda:", 
-    placeholder="Contoh: Servis repair laptop rosak, motherboard short, skrin pecah & siap cepat.",
+    placeholder="Contoh: Servis kereta sewa berpemandu, selesa, pemandu mesra & harga berpatutan.",
     height=100
 )
 
@@ -40,7 +40,7 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
     if not user_idea:
         st.warning("⚠️ Sila masukkan idea produk / servis anda dulu!")
     elif not api_key:
-        st.error("⚠️ Sila masukkan **Gemini API Key** di menu sebelah kiri dulu bro! (Percuma je ambil dari link kat sidebar tu).")
+        st.error("⚠️ Sila masukkan **Gemini API Key** di menu sebelah kiri dulu bro!")
     else:
         with st.spinner("🤖 Otak Gemini AI sedang merangka strategi kempen khas untuk anda..."):
             try:
@@ -48,15 +48,38 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.0-flash')
                 
-                # Prompt Khas
-                prompt_img = f"Create 1 detailed Midjourney image prompt in English for promoting this business/service: '{user_idea}'. Include realistic details, cinematic lighting, 8k. Output ONLY the raw prompt text, no intro."
-                prompt_script = f"Tulis 1 skrip video TikTok/Reels pendek (15-30 saat) dalam Bahasa Melayu santai untuk promosi: '{user_idea}'. Buat format kemas ada [0-3s] Hook penarik, [3-15s] Isi/Penyelesaian, dan [15-20s] Call to Action."
-                prompt_copy = f"Tulis 1 ayat copywriting khas untuk Threads/Facebook dalam Bahasa Melayu santai (gaya borak manusia/storytelling) untuk promosi: '{user_idea}'. Elakkan hard sell, buat orang rasa nak terus komen."
+                # 1 Panggilan API Sahaja (Jimat Quota & Elak Error 429)
+                combined_prompt = f"""
+                Tolong jana 3 perkara untuk perniagaan/servis ini: '{user_idea}'
 
-                # Penjanaan Jawapan dari AI
-                res_img = model.generate_content(prompt_img).text
-                res_script = model.generate_content(prompt_script).text
-                res_copy = model.generate_content(prompt_copy).text
+                Formatkan jawapan TEPAT seperti struktur pembahagi di bawah ini tanpa sebarang intro:
+
+                ===IMAGE===
+                (Tulis 1 detailed Midjourney image prompt dalam Bahasa Inggeris. Include realistic details, cinematic lighting, 8k. Hanya prompt sahaja.)
+
+                ===SCRIPT===
+                (Tulis 1 skrip video TikTok/Reels pendek 15-30 saat dalam Bahasa Melayu santai. Format kemas ada [0-3s] Hook penarik, [3-15s] Isi/Penyelesaian, [15-20s] Call to Action.)
+
+                ===COPY===
+                (Tulis 1 ayat copywriting khas Threads/FB dalam Bahasa Melayu santai gaya borak manusia/storytelling. Elakkan hard sell.)
+                """
+
+                response = model.generate_content(combined_prompt).text
+
+                # Asingkan jawapan mengikut tag
+                res_img = "Gagal menjana gambar."
+                res_script = "Gagal menjana skrip."
+                res_copy = "Gagal menjana copywriting."
+
+                if "===IMAGE===" in response and "===SCRIPT===" in response and "===COPY===" in response:
+                    parts = response.split("===IMAGE===")[1].split("===SCRIPT===")
+                    res_img = parts[0].strip()
+                    
+                    script_and_copy = parts[1].split("===COPY===")
+                    res_script = script_and_copy[0].strip()
+                    res_copy = script_and_copy[1].strip()
+                else:
+                    res_copy = response
 
                 # Paparan 3 Kolum
                 col1, col2, col3 = st.columns(3)
@@ -79,5 +102,4 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
                 st.success("✨ Siap! Kempen berjaya dijana secara 100% dinamik.")
 
             except Exception as e:
-                st.error(f"Ada masalah pada API Key atau sambungan: {e}")
-    
+                st.error(f"Ada masalah: {e}")
