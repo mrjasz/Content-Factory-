@@ -35,43 +35,65 @@ with st.sidebar:
         st.markdown("---")
         st.info("💡 **Nota:** Masukkan API Key Google jika Secrets belum ditetapkan.")
 
-# Ruang Input
-user_idea = st.text_area(
-    "Masukkan idea produk / servis anda:", 
-    placeholder="Contoh: Servis repair telefon dari rumah ke rumah, tukar skrin, bateri & siap cepat.",
-    height=100
-)
+# Ruang Input Menggunakan Form (Elak Request Berulang)
+with st.form("content_form"):
+    user_idea = st.text_area(
+        "Masukkan idea produk / servis anda:", 
+        placeholder="Contoh: Servis repair telefon dari rumah ke rumah, tukar skrin, bateri & siap cepat.",
+        height=100
+    )
+    submit_button = st.form_submit_button("🚀 Generate Full Campaign Sekarang", type="primary", use_container_width=True)
 
-# Butang Tindakan
-if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_container_width=True):
+# Tindakan Apabila Form Dihantar
+if submit_button:
     if not user_idea:
         st.warning("⚠️ Sila masukkan idea produk / servis anda dulu!")
     elif not api_key:
         st.error("⚠️ Sila masukkan **Gemini API Key** di menu sebelah kiri dulu bro!")
     else:
         with st.spinner("🤖 Otak Gemini AI sedang merangka strategi kempen khas untuk anda..."):
-            try:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-2.0-flash')
-                
-                combined_prompt = f"""
-                Tolong jana 3 perkara untuk perniagaan/servis ini: '{user_idea}'
+            genai.configure(api_key=api_key)
+            
+            # Senarai model percuma dengan kuota stabil (jika 1 gagal, guna 1 lagi)
+            models_to_try = [
+                'gemini-1.5-flash',
+                'gemini-2.0-flash-lite-preview-02-05',
+                'gemini-1.5-flash-8b',
+                'gemini-2.0-flash'
+            ]
+            
+            combined_prompt = f"""
+            Tolong jana 3 perkara untuk perniagaan/servis ini: '{user_idea}'
 
-                Formatkan jawapan TEPAT seperti struktur pembahagi di bawah ini tanpa sebarang intro:
+            Formatkan jawapan TEPAT seperti struktur pembahagi di bawah ini tanpa sebarang intro:
 
-                ===IMAGE===
-                (Tulis 1 detailed Midjourney image prompt dalam Bahasa Inggeris. Include realistic details, cinematic lighting, 8k. Hanya prompt sahaja.)
+            ===IMAGE===
+            (Tulis 1 detailed Midjourney image prompt dalam Bahasa Inggeris. Include realistic details, cinematic lighting, 8k. Hanya prompt sahaja.)
 
-                ===SCRIPT===
-                (Tulis 1 skrip video TikTok/Reels pendek 15-30 saat dalam Bahasa Melayu santai. Format kemas ada [0-3s] Hook penarik, [3-15s] Isi/Penyelesaian, [15-20s] Call to Action.)
+            ===SCRIPT===
+            (Tulis 1 skrip video TikTok/Reels pendek 15-30 saat dalam Bahasa Melayu santai. Format kemas ada [0-3s] Hook penarik, [3-15s] Isi/Penyelesaian, [15-20s] Call to Action.)
 
-                ===COPY===
-                (Tulis 1 ayat copywriting khas Threads/FB dalam Bahasa Melayu santai gaya borak manusia/storytelling. Elakkan hard sell.)
-                """
+            ===COPY===
+            (Tulis 1 ayat copywriting khas Threads/FB dalam Bahasa Melayu santai gaya borak manusia/storytelling. Elakkan hard sell.)
+            """
 
-                res = model.generate_content(combined_prompt)
-                response_text = res.text
+            response_text = None
+            success_model = None
+            errors_log = []
 
+            for model_name in models_to_try:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    res = model.generate_content(combined_prompt)
+                    if res and res.text:
+                        response_text = res.text
+                        success_model = model_name
+                        break
+                except Exception as e:
+                    errors_log.append(f"{model_name}: {e}")
+                    continue
+
+            if response_text:
                 res_img = "Gagal menjana gambar."
                 res_script = "Gagal menjana skrip."
                 res_copy = "Gagal menjana copywriting."
@@ -104,7 +126,10 @@ if st.button("🚀 Generate Full Campaign Sekarang", type="primary", use_contain
                     st.caption("Gaya Borak Santai (Threads/FB)")
                     st.markdown(f'<div class="output-box">{res_copy}</div>', unsafe_allow_html=True)
 
-                st.success("✨ Siap! Kempen berjaya dijana secara 100% dinamik.")
-
-            except Exception as e:
-                st.error(f"⚠️ Masalah dikesan: {e}")
+                st.success(f"✨ Siap! Berjaya dijana menggunakan enjin {success_model}.")
+            else:
+                st.error("⚠️ Semua enjin AI gagal diakses. Sila semak semula API Key anda.")
+                with st.expander("Lihat Butiran Error Tecnical"):
+                    for err in errors_log:
+                        st.write(err)
+                        
